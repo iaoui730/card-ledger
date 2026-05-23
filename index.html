@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Card Ledger">
+<meta name="theme-color" content="#ffffff">
+<link rel="manifest" href="manifest.json">
+<title>Card Ledger</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden;font-family:'DM Mono','Courier New',monospace;background:#f6f8fa}
+#app{max-width:430px;margin:0 auto;height:100%;display:flex;flex-direction:column;background:#fff;position:relative}
+
+/* pages */
+.page{display:none;flex-direction:column;flex:1;overflow:hidden}
+.page.active{display:flex}
+.page-header{padding:max(28px,env(safe-area-inset-top)) 20px 14px;border-bottom:1px solid #eaeef2;flex-shrink:0}
+.page-label{font-size:10px;color:#8c959f;letter-spacing:3px;margin-bottom:3px}
+.page-title{font-size:19px;font-weight:500;color:#24292f}
+.scroll{flex:1;overflow-y:auto;padding:14px 20px;padding-bottom:calc(80px + env(safe-area-inset-bottom))}
+
+/* card blocks */
+.card-block{width:100%;text-align:left;background:none;border:none;cursor:pointer;margin-bottom:10px;padding:0;display:block}
+.card-inner{border-radius:10px;overflow:hidden}
+.card-body{padding:16px 18px}
+.card-header-row{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px}
+.card-name{font-size:10px;font-weight:500;opacity:.7;letter-spacing:.5px;margin-bottom:4px}
+.card-amount{font-size:24px;font-weight:500;letter-spacing:-.5px;line-height:1}
+.card-amount-sub{font-size:10px;font-weight:400;opacity:.5;margin-left:5px}
+.card-badge{text-align:right;font-size:10px;border-radius:6px;padding:5px 9px;line-height:1.7;background:rgba(255,255,255,.55)}
+.bar-row{margin-bottom:7px}
+.bar-label{display:flex;justify-content:space-between;font-size:11px;opacity:.8;margin-bottom:3px}
+.bar-track{height:3px;border-radius:2px;background:rgba(0,0,0,.08)}
+.bar-fill{height:100%;border-radius:2px}
+.card-footer{font-size:10px;opacity:.5;margin-top:12px;padding-top:10px}
+
+/* bottom nav */
+.bottom-nav{position:absolute;bottom:0;left:0;right:0;background:#fff;border-top:1px solid #eaeef2;display:flex;padding:10px 0;padding-bottom:calc(10px + env(safe-area-inset-bottom))}
+.nav-btn{flex:1;background:none;border:none;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;padding:4px 0;font-family:inherit;color:#8c959f}
+.nav-btn.active{color:#24292f}
+.nav-icon{font-size:15px;line-height:1}
+.nav-label{font-size:10px;letter-spacing:1px}
+
+/* detail */
+.detail-header{flex-shrink:0}
+.back-btn{background:none;border:none;cursor:pointer;font-size:11px;font-family:inherit;opacity:.6;margin-bottom:10px;display:block;padding:max(16px,env(safe-area-inset-top)) 20px 0}
+.section-label{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#8c959f;margin-bottom:10px}
+.record-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid #eaeef2}
+.record-icon{font-size:17px;width:26px;text-align:center}
+.record-info{flex:1;min-width:0}
+.record-note{font-size:12px;color:#24292f;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.record-sub{font-size:10px;color:#8c959f;margin-top:1px}
+.record-amount{font-size:13px;font-weight:500;color:#24292f;white-space:nowrap}
+.del-btn{background:none;border:none;cursor:pointer;color:#d0d7de;font-size:12px;padding:4px;flex-shrink:0}
+
+/* add / form */
+.field{margin-bottom:16px}
+.field-label{font-size:10px;color:#8c959f;letter-spacing:2px;text-transform:uppercase;margin-bottom:6px}
+.tag-row{display:flex;flex-wrap:wrap;gap:7px}
+.tag{padding:5px 11px;border-radius:6px;font-size:11px;cursor:pointer;font-family:inherit;transition:all .12s;background:#fff}
+.input-row{display:flex;gap:8px}
+.inp{width:100%;background:#f6f8fa;border:1px solid #d0d7de;border-radius:6px;padding:9px 12px;font-size:13px;color:#24292f;font-family:'DM Mono',monospace;outline:none;-webkit-appearance:none}
+.inp:focus{border-color:#8c959f}
+.inp-amount{font-size:20px;font-weight:500;flex:1}
+.inp-ccy{width:76px}
+.submit-btn{width:100%;padding:13px;border-radius:6px;font-size:13px;font-weight:500;cursor:pointer;font-family:inherit;margin-top:4px;transition:all .2s}
+.dashed-btn{width:100%;padding:12px;border-radius:6px;background:none;border:1px dashed #d0d7de;color:#8c959f;font-size:13px;cursor:pointer;font-family:inherit}
+
+/* manage */
+.manage-card-row{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:6px;margin-bottom:8px}
+.edit-btn{background:none;border:1px solid #d0d7de;border-radius:6px;padding:4px 10px;font-size:11px;color:#57606a;cursor:pointer;font-family:inherit}
+
+/* card form palette swatches */
+.swatch{width:30px;height:30px;border-radius:6px;cursor:pointer;padding:0;flex-shrink:0}
+.preview-row{margin-top:12px;display:flex;align-items:center;gap:8px;padding:10px 14px;border-radius:6px}
+
+/* empty state */
+.empty{text-align:center;color:#8c959f;margin-top:60px;font-size:13px}
+
+/* modal overlay for card form */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.3);z-index:100;align-items:flex-end}
+.modal-overlay.open{display:flex}
+.modal-sheet{background:#fff;border-radius:16px 16px 0 0;width:100%;max-width:430px;margin:0 auto;padding:24px 20px;padding-bottom:calc(24px + env(safe-area-inset-bottom));max-height:90vh;overflow-y:auto}
+.modal-title{font-size:16px;font-weight:500;color:#24292f;margin-bottom:20px}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- HOME -->
+  <div class="page active" id="page-home">
+    <div class="page-header">
+      <div class="page-label">CARD LEDGER</div>
+      <div class="page-title">本期账单</div>
+    </div>
+    <div class="scroll" id="home-scroll"></div>
+    <div class="bottom-nav">
+      <button class="nav-btn active" onclick="showPage('home')"><span class="nav-icon">▦</span><span class="nav-label">总览</span></button>
+      <button class="nav-btn" onclick="showPage('add')"><span class="nav-icon" style="font-size:19px">+</span><span class="nav-label">记账</span></button>
+      <button class="nav-btn" onclick="showPage('manage')"><span class="nav-icon">≡</span><span class="nav-label">卡片</span></button>
+    </div>
+  </div>
+
+  <!-- DETAIL -->
+  <div class="page" id="page-detail">
+    <div class="detail-header" id="detail-header-area"></div>
+    <div class="scroll" id="detail-scroll"></div>
+  </div>
+
+  <!-- ADD -->
+  <div class="page" id="page-add">
+    <div class="page-header">
+      <div class="page-label">NEW RECORD</div>
+      <div class="page-title">记一笔</div>
+    </div>
+    <div class="scroll">
+      <div class="field">
+        <div class="field-label">使用哪张卡</div>
+        <div class="tag-row" id="card-tags"></div>
+      </div>
+      <div class="field">
+        <div class="field-label">金额</div>
+        <div class="input-row">
+          <input class="inp inp-amount" type="number" inputmode="decimal" placeholder="0" id="inp-amount">
+          <select class="inp inp-ccy" id="inp-ccy">
+            <option>JPY</option><option>CNY</option><option>USD</option><option>EUR</option>
+          </select>
+        </div>
+      </div>
+      <div class="field">
+        <div class="field-label">分类</div>
+        <div class="tag-row" id="cat-tags"></div>
+      </div>
+      <div class="field">
+        <div class="field-label">日期</div>
+        <input class="inp" type="date" id="inp-date">
+      </div>
+      <div class="field">
+        <div class="field-label">备注</div>
+        <input class="inp" type="text" placeholder="在哪花的？" id="inp-note">
+      </div>
+      <button class="submit-btn" id="submit-btn" onclick="addRecord()">记一笔</button>
+    </div>
+    <div class="bottom-nav">
+      <button class="nav-btn" onclick="showPage('home')"><span class="nav-icon">▦</span><span class="nav-label">总览</span></button>
+      <button class="nav-btn active" onclick="showPage('add')"><span class="nav-icon" style="font-size:19px">+</span><span class="nav-label">记账</span></button>
+      <button class="nav-btn" onclick="showPage('manage')"><span class="nav-icon">≡</span><span class="nav-label">卡片</span></button>
+    </div>
+  </div>
+
+  <!-- MANAGE -->
+  <div class="page" id="page-manage">
+    <div class="page-header">
+      <div class="page-label">SETTINGS</div>
+      <div class="page-title">我的卡片</div>
+    </div>
+    <div class="scroll" id="manage-scroll"></div>
+    <div class="bottom-nav">
+      <button class="nav-btn" onclick="showPage('home')"><span class="nav-icon">▦</span><span class="nav-label">总览</span></button>
+      <button class="nav-btn" onclick="showPage('add')"><span class="nav-icon" style="font-size:19px">+</span><span class="nav-label">记账</span></button>
+      <button class="nav-btn active" onclick="showPage('manage')"><span class="nav-icon">≡</span><span class="nav-label">卡片</span></button>
+    </div>
+  </div>
+
+</div>
+
+<!-- Card form modal (add/edit card) -->
+<div class="modal-overlay" id="card-modal" onclick="closeCardModal(event)">
+  <div class="modal-sheet">
+    <div class="modal-title" id="modal-title">添加卡片</div>
+    <div class="field">
+      <div class="field-label">卡片名称</div>
+      <input class="inp" type="text" placeholder="如：楽天カード" id="cf-name">
+    </div>
+    <div class="field">
+      <div class="field-label">还款日（每月几号）</div>
+      <input class="inp" type="number" inputmode="numeric" min="1" max="31" placeholder="27" id="cf-day">
+    </div>
+    <div class="field">
+      <div class="field-label">默认货币</div>
+      <div class="tag-row" id="cf-ccy-tags"></div>
+    </div>
+    <div class="field">
+      <div class="field-label">卡片颜色</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap" id="cf-swatches"></div>
+      <div class="preview-row" id="cf-preview"></div>
+    </div>
+    <button class="submit-btn" id="cf-submit" onclick="saveCard()">添加卡片</button>
+  </div>
+</div>
+
+<script>
+// ── Constants ─────────────────────────────────────────────────────────────────
+const CATEGORIES = [
+  {id:"food",label:"餐饮",icon:"🍜"},
+  {id:"transport",label:"交通",icon:"🚃"},
+  {id:"shopping",label:"购物",icon:"🛍"},
+  {id:"grocery",label:"超市",icon:"🛒"},
+  {id:"entertainment",label:"娱乐",icon:"🎬"},
+  {id:"health",label:"医疗",icon:"💊"},
+  {id:"subscription",label:"订阅",icon:"📱"},
+  {id:"travel",label:"旅行",icon:"✈️"},
+  {id:"other",label:"其他",icon:"•"},
+];
+const CURRENCIES = ["JPY","CNY","USD","EUR"];
+const CCY = {JPY:"¥",CNY:"¥",USD:"$",EUR:"€"};
+const TO_JPY = {JPY:1,CNY:20,USD:150,EUR:165};
+const PALETTES = [
+  {bg:"#E8EEF4",border:"#C5D3DF",text:"#2C4A63",bar:"#7A9FBF"},
+  {bg:"#EEE8F0",border:"#D9CFDF",text:"#4A2C63",bar:"#9F7ABF"},
+  {bg:"#E8F0EE",border:"#CFDFDB",text:"#2C5047",bar:"#7ABFB0"},
+  {bg:"#F0EEE8",border:"#DFDACF",text:"#52461E",bar:"#BFA87A"},
+  {bg:"#F0E8E8",border:"#DFCFCF",text:"#5C2C2C",bar:"#BF7A7A"},
+];
+function pal(bg){return PALETTES.find(p=>p.bg===bg)||PALETTES[0];}
+
+// ── localStorage persistence ──────────────────────────────────────────────────
+const DEFAULT_CARDS = [
+  {id:"c1",name:"楽天カード",color:"#E8EEF4",dueDay:27,currency:"JPY"},
+  {id:"c2",name:"招商银行",color:"#EEE8F0",dueDay:5,currency:"CNY"},
+];
+function load(key,def){
+  try{const v=localStorage.getItem(key);return v?JSON.parse(v):def;}catch{return def;}
+}
+function save(key,val){try{localStorage.setItem(key,JSON.stringify(val));}catch{}}
+
+let cards   = load("cl_cards",   DEFAULT_CARDS);
+let records = load("cl_records", []);
+
+function saveCards(){save("cl_cards",cards);}
+function saveRecords(){save("cl_records",records);}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+let _rid = Date.now();
+const uid = () => "r"+(_rid++);
+
+function fmtDate(d){return d.toISOString().slice(0,10);}
+function today(){return fmtDate(new Date());}
+
+function billingPeriod(dueDay,ref=new Date()){
+  const y=ref.getFullYear(),m=ref.getMonth(),d=ref.getDate();
+  let ey=y,em=m;
+  if(d>dueDay){em++;if(em>11){em=0;ey++;}}
+  return{start:new Date(ey,em-1,dueDay+1),end:new Date(ey,em,dueDay)};
+}
+function inPeriod(s,start,end){const d=new Date(s);return d>=start&&d<=end;}
+function daysUntil(end){const n=new Date();n.setHours(0,0,0,0);return Math.round((end-n)/86400000);}
+
+// ── State ─────────────────────────────────────────────────────────────────────
+let currentPage = "home";
+let selectedCardId = null;       // for detail view
+let addCardId = null;            // selected card in add form
+let addCat = "food";             // selected category in add form
+let editingCardId = null;        // null = new card
+let cfCcy = "JPY";
+let cfColor = PALETTES[0].bg;
+
+// ── Page routing ──────────────────────────────────────────────────────────────
+function showPage(id){
+  document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));
+  document.getElementById("page-"+id).classList.add("active");
+  currentPage = id;
+  if(id==="home")   renderHome();
+  if(id==="add")    renderAdd();
+  if(id==="manage") renderManage();
+}
+
+// ── HOME ──────────────────────────────────────────────────────────────────────
+function renderHome(){
+  const el=document.getElementById("home-scroll");
+  el.innerHTML="";
+  if(cards.length===0){
+    el.innerHTML='<div class="empty">还没有卡片<br><br><button class="dashed-btn" style="max-width:200px;margin:0 auto" onclick="showPage(\'manage\')">去添加卡片</button></div>';
+    return;
+  }
+  cards.forEach(card=>{
+    const {start,end}=billingPeriod(card.dueDay);
+    const recs=records.filter(r=>r.cardId===card.id&&inPeriod(r.date,start,end));
+    const total=recs.reduce((s,r)=>s+r.amount*TO_JPY[r.currency],0);
+    const byCat={};
+    recs.forEach(r=>{byCat[r.category]=(byCat[r.category]||0)+r.amount*TO_JPY[r.currency];});
+    const days=daysUntil(end);
+    const p=pal(card.color);
+    const catEntries=Object.entries(byCat).sort((a,b)=>b[1]-a[1]).slice(0,4);
+    const barsHtml=catEntries.length===0
+      ?`<div style="font-size:12px;color:${p.text};opacity:.5">本期暂无记录</div>`
+      :catEntries.map(([cid,val])=>{
+        const c=CATEGORIES.find(x=>x.id===cid);
+        const pct=total>0?val/total:0;
+        return`<div class="bar-row">
+          <div class="bar-label" style="color:${p.text}"><span>${c?.icon} ${c?.label}</span><span>¥${Math.round(val).toLocaleString()} · ${Math.round(pct*100)}%</span></div>
+          <div class="bar-track"><div class="bar-fill" style="width:${pct*100}%;background:${p.bar}"></div></div>
+        </div>`;
+      }).join("");
+    const btn=document.createElement("button");
+    btn.className="card-block";
+    btn.onclick=()=>showDetail(card.id);
+    btn.innerHTML=`<div class="card-inner" style="border:1px solid ${p.border};background:${p.bg}">
+      <div class="card-body">
+        <div class="card-header-row">
+          <div>
+            <div class="card-name" style="color:${p.text}">${card.name}</div>
+            <div class="card-amount" style="color:${p.text}">¥${Math.round(total).toLocaleString()}<span class="card-amount-sub">JPY est.</span></div>
+          </div>
+          <div class="card-badge" style="border:1px solid ${p.border};color:${p.text}">
+            <div style="opacity:.7">还款 ${card.dueDay}日</div>
+            <div style="font-weight:500;color:${days<=3?"#b91c1c":days<=7?"#92400e":p.text}">${days>0?days+"d":days===0?"今天":"已过"}</div>
+          </div>
+        </div>
+        ${barsHtml}
+        <div class="card-footer" style="color:${p.text};border-top:1px solid ${p.border}">${recs.length} 笔记录 · ${fmtDate(new Date()).slice(5)} – ${fmtDate(end).slice(5)}</div>
+      </div>
+    </div>`;
+    el.appendChild(btn);
+  });
+}
+
+// ── DETAIL ────────────────────────────────────────────────────────────────────
+function showDetail(cardId){
+  selectedCardId=cardId;
+  const card=cards.find(c=>c.id===cardId);
+  const {start,end}=billingPeriod(card.dueDay);
+  const recs=records.filter(r=>r.cardId===cardId&&inPeriod(r.date,start,end));
+  const total=recs.reduce((s,r)=>s+r.amount*TO_JPY[r.currency],0);
+  const byCat={};
+  recs.forEach(r=>{byCat[r.category]=(byCat[r.category]||0)+r.amount*TO_JPY[r.currency];});
+  const days=daysUntil(end);
+  const p=pal(card.color);
+
+  document.getElementById("detail-header-area").innerHTML=`
+    <div style="background:${p.bg};border-bottom:1px solid ${p.border}">
+      <button class="back-btn" style="color:${p.text}" onclick="showPage('home')">← 返回</button>
+      <div style="padding:0 20px 18px">
+        <div style="font-size:10px;color:${p.text};font-weight:500;opacity:.7;margin-bottom:4px">${card.name}</div>
+        <div style="font-size:28px;font-weight:500;color:${p.text};letter-spacing:-.5px">¥${Math.round(total).toLocaleString()}</div>
+        <div style="font-size:11px;color:${p.text};opacity:.6;margin-top:4px">还款日 每月${card.dueDay}日 · 剩 ${days} 天</div>
+      </div>
+    </div>`;
+
+  const catEntries=Object.entries(byCat).sort((a,b)=>b[1]-a[1]);
+  const barsHtml=catEntries.map(([cid,val])=>{
+    const c=CATEGORIES.find(x=>x.id===cid);
+    const pct=total>0?val/total:0;
+    return`<div style="margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;font-size:12px;color:#374151;margin-bottom:5px">
+        <span>${c?.icon} ${c?.label}</span><span style="color:#8c959f">¥${Math.round(val).toLocaleString()} · ${Math.round(pct*100)}%</span>
+      </div>
+      <div style="height:4px;border-radius:3px;background:#eaeef2">
+        <div style="height:100%;width:${pct*100}%;background:${p.bar};border-radius:3px;opacity:.8"></div>
+      </div>
+    </div>`;
+  }).join("");
+
+  const recRows=[...recs].sort((a,b)=>b.date.localeCompare(a.date)).map(r=>{
+    const c=CATEGORIES.find(x=>x.id===r.category);
+    return`<div class="record-row">
+      <div class="record-icon">${c?.icon}</div>
+      <div class="record-info">
+        <div class="record-note">${escHtml(r.note||c?.label)}</div>
+        <div class="record-sub">${c?.label} · ${r.date.slice(5).replace("-","/")} · ${r.currency}</div>
+      </div>
+      <div class="record-amount">${CCY[r.currency]}${r.amount.toLocaleString()}</div>
+      <button class="del-btn" onclick="deleteRecord('${r.id}')">✕</button>
+    </div>`;
+  }).join("");
+
+  document.getElementById("detail-scroll").innerHTML=`
+    <div class="section-label">分类统计</div>
+    ${barsHtml||'<p style="font-size:12px;color:#8c959f;margin-bottom:16px">本期无记录</p>'}
+    <div class="section-label" style="margin-top:20px">消费明细</div>
+    ${recRows||'<p style="font-size:12px;color:#8c959f">暂无记录</p>'}`;
+
+  document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));
+  document.getElementById("page-detail").classList.add("active");
+  currentPage="detail";
+}
+
+function deleteRecord(id){
+  records=records.filter(r=>r.id!==id);
+  saveRecords();
+  showDetail(selectedCardId);
+}
+
+// ── ADD ───────────────────────────────────────────────────────────────────────
+function renderAdd(){
+  // default card if none selected or card deleted
+  if(!addCardId||!cards.find(c=>c.id===addCardId)) addCardId=cards[0]?.id||null;
+
+  // card tags
+  const tagRow=document.getElementById("card-tags");
+  tagRow.innerHTML="";
+  cards.forEach(card=>{
+    const p=pal(card.color);
+    const active=addCardId===card.id;
+    const btn=document.createElement("button");
+    btn.className="tag";
+    btn.style.cssText=`border:${active?`1.5px solid ${p.text}`:"1.5px solid #d0d7de"};background:${active?p.bg:"#fff"};color:${active?p.text:"#57606a"}`;
+    btn.textContent=card.name;
+    btn.onclick=()=>{
+      addCardId=card.id;
+      // sync currency to card default
+      document.getElementById("inp-ccy").value=card.currency;
+      renderAdd();
+    };
+    tagRow.appendChild(btn);
+  });
+
+  // category tags
+  const catGrid=document.getElementById("cat-tags");
+  catGrid.innerHTML="";
+  const selCard=cards.find(c=>c.id===addCardId);
+  const sp=pal(selCard?.color||PALETTES[0].bg);
+  CATEGORIES.forEach(c=>{
+    const active=addCat===c.id;
+    const btn=document.createElement("button");
+    btn.className="tag";
+    btn.style.cssText=`border:${active?`1.5px solid ${sp.text}`:"1.5px solid #d0d7de"};background:${active?sp.bg:"#fff"};color:${active?sp.text:"#57606a"}`;
+    btn.textContent=c.icon+" "+c.label;
+    btn.onclick=()=>{addCat=c.id;renderAdd();};
+    catGrid.appendChild(btn);
+  });
+
+  if(!document.getElementById("inp-date").value) document.getElementById("inp-date").value=today();
+  if(selCard) document.getElementById("inp-ccy").value=selCard.currency;
+
+  // submit button color
+  const btn=document.getElementById("submit-btn");
+  const p=pal(selCard?.color||PALETTES[0].bg);
+  btn.style.cssText=`width:100%;padding:13px;border-radius:6px;font-size:13px;font-weight:500;cursor:pointer;font-family:inherit;margin-top:4px;background:${p.bg};border:1px solid ${p.border};color:${p.text}`;
+  btn.textContent="记一笔";
+}
+
+function addRecord(){
+  const amount=parseFloat(document.getElementById("inp-amount").value);
+  if(!amount||isNaN(amount)||!addCardId)return;
+  const ccy=document.getElementById("inp-ccy").value;
+  const date=document.getElementById("inp-date").value||today();
+  const note=document.getElementById("inp-note").value.trim();
+  records.push({id:uid(),cardId:addCardId,date,amount,currency:ccy,category:addCat,note});
+  saveRecords();
+  document.getElementById("inp-amount").value="";
+  document.getElementById("inp-note").value="";
+  const btn=document.getElementById("submit-btn");
+  btn.textContent="✓ 已记录";
+  btn.style.background="#dcfce7";
+  btn.style.borderColor="#86efac";
+  btn.style.color="#166534";
+  setTimeout(()=>renderAdd(),1000);
+}
+
+// ── MANAGE ────────────────────────────────────────────────────────────────────
+function renderManage(){
+  const el=document.getElementById("manage-scroll");
+  el.innerHTML="";
+  cards.forEach(card=>{
+    const p=pal(card.color);
+    const row=document.createElement("div");
+    row.className="manage-card-row";
+    row.style.cssText=`border:1px solid ${p.border};border-left:3px solid ${p.bar};background:${p.bg}`;
+    row.innerHTML=`
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:500;color:${p.text}">${escHtml(card.name)}</div>
+        <div style="font-size:10px;color:${p.text};opacity:.6;margin-top:2px">还款日 ${card.dueDay}日 · ${card.currency}</div>
+      </div>
+      <button class="edit-btn" onclick="openCardModal('${card.id}')">编辑</button>
+      <button class="del-btn" onclick="deleteCard('${card.id}')">✕</button>`;
+    el.appendChild(row);
+  });
+  const addBtn=document.createElement("button");
+  addBtn.className="dashed-btn";
+  addBtn.textContent="+ 添加新卡片";
+  addBtn.onclick=()=>openCardModal(null);
+  el.appendChild(addBtn);
+}
+
+function deleteCard(id){
+  if(!confirm("删除该卡片及其所有记录？"))return;
+  cards=cards.filter(c=>c.id!==id);
+  records=records.filter(r=>r.cardId!==id);
+  saveCards();saveRecords();
+  renderManage();
+}
+
+// ── CARD MODAL ────────────────────────────────────────────────────────────────
+function openCardModal(cardId){
+  editingCardId=cardId;
+  const card=cardId?cards.find(c=>c.id===cardId):null;
+  document.getElementById("modal-title").textContent=card?"编辑卡片":"添加卡片";
+  document.getElementById("cf-submit").textContent=card?"保存修改":"添加卡片";
+  document.getElementById("cf-name").value=card?.name||"";
+  document.getElementById("cf-day").value=card?.dueDay||27;
+  cfCcy=card?.currency||"JPY";
+  cfColor=card?.color||PALETTES[0].bg;
+  renderModalForm();
+  document.getElementById("card-modal").classList.add("open");
+}
+
+function closeCardModal(e){
+  if(e.target===document.getElementById("card-modal"))
+    document.getElementById("card-modal").classList.remove("open");
+}
+
+function renderModalForm(){
+  // currency tags
+  const ccyRow=document.getElementById("cf-ccy-tags");
+  ccyRow.innerHTML="";
+  CURRENCIES.forEach(c=>{
+    const active=cfCcy===c;
+    const btn=document.createElement("button");
+    btn.className="tag";
+    btn.style.cssText=`border:${active?"1.5px solid #57606a":"1.5px solid #d0d7de"};background:${active?"#f0f0f0":"#fff"};color:${active?"#24292f":"#57606a"}`;
+    btn.textContent=c;
+    btn.onclick=()=>{cfCcy=c;renderModalForm();};
+    ccyRow.appendChild(btn);
+  });
+  // swatches
+  const sw=document.getElementById("cf-swatches");
+  sw.innerHTML="";
+  PALETTES.forEach(p=>{
+    const btn=document.createElement("button");
+    btn.className="swatch";
+    btn.style.cssText=`background:${p.bg};border:${cfColor===p.bg?`2.5px solid ${p.text}`:`1.5px solid ${p.border}`}`;
+    btn.onclick=()=>{cfColor=p.bg;renderModalForm();};
+    sw.appendChild(btn);
+  });
+  // preview
+  const prev=document.getElementById("cf-preview");
+  const p=pal(cfColor);
+  const name=document.getElementById("cf-name").value||"预览";
+  prev.style.cssText=`margin-top:12px;display:flex;align-items:center;gap:8px;padding:10px 14px;border-radius:6px;border:1px solid ${p.border};border-left:3px solid ${p.bar};background:${p.bg}`;
+  prev.innerHTML=`<div style="font-size:12px;color:${p.text};font-weight:500">${escHtml(name)}</div>`;
+}
+
+// update preview when name typed
+document.getElementById("cf-name").addEventListener("input",()=>{
+  if(document.getElementById("card-modal").classList.contains("open")) renderModalForm();
+});
+
+function saveCard(){
+  const name=document.getElementById("cf-name").value.trim();
+  const day=parseInt(document.getElementById("cf-day").value)||27;
+  if(!name)return;
+  if(editingCardId){
+    cards=cards.map(c=>c.id===editingCardId?{...c,name,dueDay:day,currency:cfCcy,color:cfColor}:c);
+  }else{
+    cards.push({id:"c"+Date.now(),name,dueDay:day,currency:cfCcy,color:cfColor});
+  }
+  saveCards();
+  document.getElementById("card-modal").classList.remove("open");
+  renderManage();
+}
+
+// ── Utils ─────────────────────────────────────────────────────────────────────
+function escHtml(s){
+  return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+renderHome();
+renderAdd();
+</script>
+
+<!-- PWA Service Worker registration -->
+<script>
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('sw.js').catch(()=>{});
+}
+</script>
+</body>
+</html>
